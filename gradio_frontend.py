@@ -14,7 +14,8 @@ from api.keyword_extraction import extract_main_keyword
 # Global variables to store search result data.
 paper_ids = []             # List of paper IDs.
 paper_title_map = {}       # Mapping: paper_id -> paper title.
-cached_papers = []  
+cached_papers = [] 
+selected_paper_ids = []
 
 def extract_text_from_file(file_path):
     """
@@ -83,11 +84,39 @@ def search_and_update(query, file):
                     title = paper.get("title", "Unknown Title")
                     paper_ids.append(pid)
                     paper_title_map[pid] = title
-            return markdown_text
+            html_results = "<div style='line-height:1.8;'>"
+            for paper in papers:
+                pid = str(paper.get("id", "N/A"))
+                title = paper.get("title", "Unknown Title")
+                html_results += f"""
+                    <div style='margin-bottom: 10px;'>
+                        <div style='padding:5px 10px; border:1px solid #999; background:#f8f8f8;'>
+                            📄 {title}
+                        </div>
+                    </div>
+                """
+            html_results += "</div>"
+
+            titles = [f"{paper.get('title', 'Unknown Title')}" for paper in papers]
+            return gr.update(choices=titles, value=[])
         else:
             return f"Error: {response.status_code}"
     except Exception as e:
         return f"Request failed: {str(e)}"
+
+def update_selection(selected_titles):
+    global selected_paper_ids
+    selected_paper_ids = [
+        pid for pid, title in paper_title_map.items() if title in selected_titles
+    ]
+    return f"✅ Selected papers: {len(selected_paper_ids)}" 
+
+def select_paper(paper_id):
+    if paper_id in selected_paper_ids:
+        selected_paper_ids.remove(paper_id)
+    else:
+        selected_paper_ids.append(paper_id)
+    return f"✅ Selected papers: {len(selected_paper_ids)}"
 
 # For now, we leave other action functions as placeholders.
 def action_placeholder():
@@ -101,7 +130,9 @@ with gr.Blocks() as demo:
             query_input = gr.Textbox(label="Enter your research query", placeholder="e.g., Find papers on NLP")
             upload_file = gr.File(label="Upload Document - .pdf, .docx, .txt (optional)")
             search_button = gr.Button("Search")
-            results_md = gr.Markdown(label="Search Results")
+            paper_selector = gr.CheckboxGroup(choices=[], label="Select Papers", interactive=True)
+
+            selected_display = gr.Markdown("✅ Selected papers: 0")
             
             with gr.Row():
                 btn_citations = gr.Button("Get Citations")
@@ -120,15 +151,21 @@ with gr.Blocks() as demo:
     search_button.click(
         fn=search_and_update,
         inputs=[query_input, upload_file],
-        outputs=results_md
+        outputs=paper_selector
     )
-    
+
+    paper_selector.change(
+        fn=update_selection,
+        inputs=[paper_selector],
+        outputs=[selected_display]
+    )
+        
     # Wire up the "Get Citations" button.
-    btn_citations.click(fn=lambda: get_citations(paper_ids, paper_title_map), inputs=[], outputs=details_html)
+    btn_citations.click(fn=lambda: get_citations(selected_paper_ids, paper_title_map), inputs=[], outputs=details_html)
     
     # Other buttons remain placeholders for now.
-    btn_summary.click(fn=lambda: summarize_papers(paper_ids, paper_title_map), inputs=[], outputs=details_html)
-    btn_bibtex.click(fn=lambda: get_bibtex(paper_ids, paper_title_map, cached_papers), inputs=[], outputs=details_html)
-    btn_compare.click(fn=lambda: compare_papers(paper_ids, paper_title_map), inputs=[], outputs=details_html)
+    btn_summary.click(fn=lambda: summarize_papers(selected_paper_ids, paper_title_map), inputs=[], outputs=details_html)
+    btn_bibtex.click(fn=lambda: get_bibtex(selected_paper_ids, paper_title_map, cached_papers), inputs=[], outputs=details_html)
+    btn_compare.click(fn=lambda: compare_papers(selected_paper_ids, paper_title_map), inputs=[], outputs=details_html)
     
 demo.launch(share=True)

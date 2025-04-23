@@ -6,7 +6,7 @@ def search_papers(query):
     """Fetches and parses research papers from the API."""
     params = {
         "query": query,
-        "limit": 3,  # Fetch 3 results
+        "limit": 10,  # Fetch 3 results
         "fields": "title,authors,citationCount,externalIds,paperId",
         "get_pdfs": "True"
     }
