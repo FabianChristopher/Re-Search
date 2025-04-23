@@ -44,7 +44,7 @@ def extract_text_from_file(file_path):
     except Exception as e:
         return f"Error extracting text: {str(e)}"
 
-def search_and_update(query, file):
+def search_and_update(query, file) -> tuple:
     """
     Extracts the main topic keyword from the query (or uploaded file content),
     then passes the extracted keyword to the paper search API.
@@ -116,7 +116,34 @@ def search_and_update(query, file):
                 titles.append(label)
                 formatted_label_to_id[label] = str(paper.get("id", "N/A"))
 
-            return gr.update(choices=titles, value=[])
+            pdf_links_inner = ""
+            for paper in papers:
+                title = paper.get("title", "Unknown Title")
+                pdf = paper.get("pdf", "").strip()
+
+                if pdf.startswith("http"):
+                    pdf_links_inner += f"<li><a href='{pdf}' target='_blank' style='color: #93c5fd;'>{title}</a></li>"
+                else:
+                    pdf_links_inner += f"<li>{title} <span style='color: #94a3b8;'>(No PDF available)</span></li>"
+
+            if pdf_links_inner:
+                pdf_links_html = f"<ul style='padding-left: 20px; margin: 0;'>{pdf_links_inner}</ul>"
+            else:
+                pdf_links_html = "<p style='color: #cbd5e1;'>No PDF links available for these results.</p>"
+
+            # Safely wrap the links inside the outer styled box directly
+            wrapped_pdf_html = f"""
+            <div id='pdf-box' style='border: 2px solid #334155; border-radius: 10px; padding: 16px; background-color: #1e293b; color: #e2e8f0; margin-top: 50px; max-height: 200px; overflow-y: auto;'>
+                <h3 style='margin-top: 0;'>🔗 PDF Links for Papers</h3>
+                {pdf_links_html}
+            </div>
+            """
+
+            return (
+                gr.update(choices=titles, value=[]),
+                wrapped_pdf_html
+            )
+
         else:
             return f"Error: {response.status_code}"
     except Exception as e:
@@ -164,32 +191,48 @@ with gr.Blocks() as demo:
     with gr.Row():
         # Left Column: Search and action buttons.
         with gr.Column(scale=1):
-            gr.Markdown("## Re:Search - AI Powered Research Assistant")
+            gr.Markdown("<h1 style='font-size: 32px; margin-bottom: 20px;'>🔍 Re:Search – AI Powered Research Assistant</h1>")
             query_input = gr.Textbox(label="Enter your research query", placeholder="e.g., Find papers on NLP")
             upload_file = gr.File(label="Upload Document - .pdf, .docx, .txt (optional)")
             search_button = gr.Button("Search")
             paper_selector = gr.CheckboxGroup(choices=[], label="Select Papers", interactive=True)
 
             selected_display = gr.Markdown("✅ Selected papers: 0")
+
+            # pdf_links_display = gr.Markdown("🔗 PDF links will appear here.")
+            
+            # with gr.Row():
+            #     btn_citations = gr.Button("Get Citations")
+            #     btn_summary = gr.Button("Explain Papers")
+            #     btn_bibtex = gr.Button("Get BibTeX Reference")
+            #     btn_compare = gr.Button("Compare Papers")                
+                
+        # Right Column: Detailed results pane.
+        with gr.Column(scale=1):
+            pdf_links_display = gr.HTML("""
+                <div id='pdf-box' style='border: 2px solid #334155; border-radius: 10px; padding: 16px; background-color: #1e293b; color: #e2e8f0; margin-top: 50px; max-height: 200px; overflow-y: auto;'>
+                    <h3 style='margin-top: 0;'>🔗 PDF Links for Papers</h3>
+                    <div id='pdf-content'>PDF links will appear here.</div>
+                </div>
+            """)
             
             with gr.Row():
                 btn_citations = gr.Button("Get Citations")
                 btn_summary = gr.Button("Explain Papers")
                 btn_bibtex = gr.Button("Get BibTeX Reference")
-                btn_compare = gr.Button("Compare Papers")                
-                
-        # Right Column: Detailed results pane.
-        with gr.Column(scale=1):
+                btn_compare = gr.Button("Compare Papers")
+            
             details_html = gr.HTML(
-                "<div style='border: 2px solid #333; padding: 10px; height: 90vh; overflow-y: auto;'>Detailed Results will appear here.</div>", 
+                "<div style='border: 2px solid #333; padding: 10px; height: 90vh; overflow-y: auto;'>Detailed Results will appear here.</div>",
                 label="Detailed Results"
             )
+
     
     # Wire up the search button.
     search_button.click(
         fn=search_and_update,
         inputs=[query_input, upload_file],
-        outputs=paper_selector
+        outputs=[paper_selector, pdf_links_display]
     )
 
     paper_selector.change(
