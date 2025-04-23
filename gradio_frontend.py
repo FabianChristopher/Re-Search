@@ -16,6 +16,7 @@ paper_ids = []             # List of paper IDs.
 paper_title_map = {}       # Mapping: paper_id -> paper title.
 cached_papers = [] 
 selected_paper_ids = []
+formatted_label_to_id = {}
 
 def extract_text_from_file(file_path):
     """
@@ -85,6 +86,7 @@ def search_and_update(query, file):
                     paper_ids.append(pid)
                     paper_title_map[pid] = title
             html_results = "<div style='line-height:1.8;'>"
+            
             for paper in papers:
                 pid = str(paper.get("id", "N/A"))
                 title = paper.get("title", "Unknown Title")
@@ -97,7 +99,23 @@ def search_and_update(query, file):
                 """
             html_results += "</div>"
 
-            titles = [f"{paper.get('title', 'Unknown Title')}" for paper in papers]
+            titles = []
+            global formatted_label_to_id
+            formatted_label_to_id = {}
+
+            for paper in papers:
+                title = paper.get("title", "Unknown Title")
+                authors = ", ".join(paper.get("authors", []))
+                citations = paper.get("citations", 0)
+                pdf_link = paper.get("pdf", None)
+
+                label = f"📄 {title}\n👥 {authors}\n📈 Citations: {citations}"
+                if pdf_link:
+                    label += f"\n🔗 [PDF]({pdf_link})"
+
+                titles.append(label)
+                formatted_label_to_id[label] = str(paper.get("id", "N/A"))
+
             return gr.update(choices=titles, value=[])
         else:
             return f"Error: {response.status_code}"
@@ -107,9 +125,29 @@ def search_and_update(query, file):
 def update_selection(selected_titles):
     global selected_paper_ids
     selected_paper_ids = [
-        pid for pid, title in paper_title_map.items() if title in selected_titles
+        formatted_label_to_id[label] for label in selected_titles if label in formatted_label_to_id
     ]
     return f"✅ Selected papers: {len(selected_paper_ids)}" 
+
+def guarded_compare():
+    if len(selected_paper_ids) < 2:
+        return "<div style='color:red;'>⚠️ Please select at least <b>2 papers</b> to compare.</div>"
+    return compare_papers(selected_paper_ids, paper_title_map)
+
+def guarded_summary():
+    if not selected_paper_ids:
+        return "<div style='color:red;'>⚠️ Please select at least <b>1 paper</b> to summarize.</div>"
+    return summarize_papers(selected_paper_ids, paper_title_map)
+
+def guarded_bibtex():
+    if not selected_paper_ids:
+        return "<div style='color:red;'>⚠️ Please select at least <b>1 paper</b> to generate BibTeX.</div>"
+    return get_bibtex(selected_paper_ids, paper_title_map, cached_papers)
+
+def guarded_citations():
+    if not selected_paper_ids:
+        return "<div style='color:red;'>⚠️ Please select at least <b>1 paper</b> to get citation contexts.</div>"
+    return get_citations(selected_paper_ids, paper_title_map)
 
 def select_paper(paper_id):
     if paper_id in selected_paper_ids:
@@ -161,11 +199,11 @@ with gr.Blocks() as demo:
     )
         
     # Wire up the "Get Citations" button.
-    btn_citations.click(fn=lambda: get_citations(selected_paper_ids, paper_title_map), inputs=[], outputs=details_html)
+    btn_citations.click(fn=guarded_citations, inputs=[], outputs=details_html)
     
     # Other buttons remain placeholders for now.
-    btn_summary.click(fn=lambda: summarize_papers(selected_paper_ids, paper_title_map), inputs=[], outputs=details_html)
-    btn_bibtex.click(fn=lambda: get_bibtex(selected_paper_ids, paper_title_map, cached_papers), inputs=[], outputs=details_html)
-    btn_compare.click(fn=lambda: compare_papers(selected_paper_ids, paper_title_map), inputs=[], outputs=details_html)
+    btn_summary.click(fn=guarded_summary, inputs=[], outputs=details_html)
+    btn_bibtex.click(fn=guarded_bibtex, inputs=[], outputs=details_html)
+    btn_compare.click(fn=guarded_compare, inputs=[], outputs=details_html)
     
 demo.launch(share=True)
