@@ -14,6 +14,7 @@ from api.keyword_extraction import extract_main_keyword
 # Global variables to store search result data.
 paper_ids = []             # List of paper IDs.
 paper_title_map = {}       # Mapping: paper_id -> paper title.
+cached_papers = []  
 
 def extract_text_from_file(file_path):
     """
@@ -72,6 +73,9 @@ def search_and_update(query, file):
             markdown_text = response_data.get("response", "No response received")
             papers = response_data.get("papers", [])
 
+            global cached_papers
+            cached_papers = papers
+
             # Build global paper_ids and mapping from id to title.
             for paper in papers:
                 if isinstance(paper, dict):
@@ -124,7 +128,7 @@ with gr.Blocks() as demo:
     
     # Other buttons remain placeholders for now.
     btn_summary.click(fn=lambda: summarize_papers(paper_ids, paper_title_map), inputs=[], outputs=details_html)
-    btn_bibtex.click(fn=lambda: get_bibtex(paper_ids, paper_title_map), inputs=[], outputs=details_html)
+    btn_bibtex.click(fn=lambda: get_bibtex(paper_ids, paper_title_map, cached_papers), inputs=[], outputs=details_html)
     btn_compare.click(fn=lambda: compare_papers(paper_ids, paper_title_map), inputs=[], outputs=details_html)
     
 demo.launch(share=True)
