@@ -1,5 +1,12 @@
 # Documentation
 
+## PPT Slides
+<p align="left">
+  <a href="https://docs.google.com/presentation/d/1RY0rJ2jCrt9qilzwskgikvDHo3gtBIfJ/edit?usp=sharing&ouid=109430956441099734402&rtpof=true&sd=true" target="_blank">
+    <img src="https://img.shields.io/badge/Open%20Slides-purple?style=for-the-badge" alt="Report">
+  </a>
+</p>
+
 ## Project Report
 <p align="left">
   <a href="https://drive.google.com/file/d/1u3mjwCqbRkNbdip-zhoenExMsZIPMzw7/view?usp=sharing" target="_blank">
